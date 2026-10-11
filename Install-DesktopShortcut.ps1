@@ -11,6 +11,7 @@ param(
     [switch]$SkipVsCodeSave,
     [switch]$SkipUpdate,
     [switch]$RecoverDockerDesktopDistro,
+    [switch]$NoPauseOnSuccess,
     [switch]$NoPauseOnError,
     [string]$PowerShellExe = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
 )
@@ -95,6 +96,10 @@ if ($SkipUpdate) {
 
 if ($RecoverDockerDesktopDistro) {
     $arguments.Add('-RecoverDockerDesktopDistro')
+}
+
+if (-not $NoPauseOnSuccess) {
+    $arguments.Add('-PauseOnSuccess')
 }
 
 if (-not $NoPauseOnError) {

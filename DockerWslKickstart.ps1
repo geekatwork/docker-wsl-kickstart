@@ -10,6 +10,7 @@ param(
     [switch]$SkipVsCodeSave,
     [switch]$SkipUpdate,
     [switch]$RecoverDockerDesktopDistro,
+    [switch]$PauseOnSuccess,
     [switch]$PauseOnError
 )
 
@@ -498,6 +499,10 @@ try {
 
     Log '=== Safe Update Script Completed (Final Restart Done) ==='
     Write-Host "`nDocker Desktop and VS Code restarted. Log saved to $LogFile"
+    if ($PauseOnSuccess) {
+        Write-Host ""
+        Read-Host 'Press Enter to close this window'
+    }
 }
 catch {
     Log "ERROR: $($_.Exception.Message)"

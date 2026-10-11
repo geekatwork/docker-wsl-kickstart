@@ -64,7 +64,8 @@ rename the folder later, run `Install-DesktopShortcut.ps1` again from the new
 location to recreate the shortcut.
 
 Shortcut-created runs stay open if an error occurs so you can read the message.
-The same error is also written to:
+They also pause after a successful run so you can see the final status and log
+path. The same output is also written to:
 
 ```text
 %USERPROFILE%\docker_update_log.txt
@@ -121,6 +122,12 @@ To close VS Code without sending the Save All request:
 
 ```powershell
 .\Install-DesktopShortcut.ps1 -RestartWsl -SkipVsCodeSave
+```
+
+To create a shortcut that does not pause after a successful run:
+
+```powershell
+.\Install-DesktopShortcut.ps1 -NoPauseOnSuccess
 ```
 
 ## Restore only, without checking for updates
