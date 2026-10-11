@@ -43,6 +43,36 @@ function Add-NamedArgument {
     }
 }
 
+function Add-CmdPause {
+    param(
+        [System.Collections.Generic.List[string]]$Commands,
+        [string]$Condition
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Condition)) {
+        return
+    }
+
+    $Commands.Add('echo.')
+    $Commands.Add('echo Docker WSL Kickstart finished with exit code %EXITCODE%.')
+    $Commands.Add("if $Condition pause")
+}
+
+function Enable-ShortcutRunAsAdministrator {
+    param([string]$ShortcutPath)
+
+    $bytes = [System.IO.File]::ReadAllBytes($ShortcutPath)
+    $linkFlagsOffset = 0x15
+    $runAsUserFlag = 0x20
+
+    if ($bytes.Length -le $linkFlagsOffset) {
+        throw "Shortcut '$ShortcutPath' is not a valid Windows shortcut."
+    }
+
+    $bytes[$linkFlagsOffset] = [byte]($bytes[$linkFlagsOffset] -bor $runAsUserFlag)
+    [System.IO.File]::WriteAllBytes($ShortcutPath, $bytes)
+}
+
 if (-not (Test-Path -LiteralPath $InstallDirectory -PathType Container)) {
     throw "InstallDirectory '$InstallDirectory' does not exist."
 }
@@ -102,14 +132,6 @@ if ($RecoverDockerDesktopDistro) {
     $arguments.Add('-RecoverDockerDesktopDistro')
 }
 
-if (-not $NoPauseOnSuccess) {
-    $arguments.Add('-PauseOnSuccess')
-}
-
-if (-not $NoPauseOnError) {
-    $arguments.Add('-PauseOnError')
-}
-
 $desktop = [Environment]::GetFolderPath('DesktopDirectory')
 if ([string]::IsNullOrWhiteSpace($desktop)) {
     throw 'Unable to locate the current user desktop folder.'
@@ -119,7 +141,20 @@ $shortcutPath = Join-Path $desktop $ShortcutName
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = $CommandShellExe
-$shortcut.Arguments = '/k "' + (Quote-Argument $PowerShellExe) + ' ' + ($arguments -join ' ') + '"'
+
+$commands = [System.Collections.Generic.List[string]]::new()
+$commands.Add((Quote-Argument $PowerShellExe) + ' ' + ($arguments -join ' '))
+$commands.Add('set "EXITCODE=%ERRORLEVEL%"')
+if (-not $NoPauseOnSuccess -and -not $NoPauseOnError) {
+    Add-CmdPause -Commands $commands -Condition '1 EQU 1'
+} elseif (-not $NoPauseOnSuccess) {
+    Add-CmdPause -Commands $commands -Condition '%EXITCODE% EQU 0'
+} elseif (-not $NoPauseOnError) {
+    Add-CmdPause -Commands $commands -Condition '%EXITCODE% NEQ 0'
+}
+$commands.Add('exit /b %EXITCODE%')
+
+$shortcut.Arguments = '/d /s /c "' + ($commands -join ' & ') + '"'
 $shortcut.WorkingDirectory = $InstallDirectory
 $shortcut.Description = 'Restore Docker Desktop and WSL after reboot.'
 
@@ -130,5 +165,7 @@ if (-not [string]::IsNullOrWhiteSpace($DockerDesktopPath) -and (Test-Path -Liter
 }
 
 $shortcut.Save()
+Enable-ShortcutRunAsAdministrator -ShortcutPath $shortcutPath
 
 Write-Host "Created desktop shortcut: $shortcutPath"
+Write-Host 'The shortcut is configured to run as administrator.'

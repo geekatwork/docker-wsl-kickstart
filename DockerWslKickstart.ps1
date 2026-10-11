@@ -81,6 +81,40 @@ function Get-ObjectPropertyValue {
     return $property.Value
 }
 
+function Quote-NativeArgument {
+    param([string]$Value)
+
+    if ($null -eq $Value) {
+        return '""'
+    }
+
+    if ($Value -notmatch '[\s"]') {
+        return $Value
+    }
+
+    return '"' + ($Value -replace '(\\*)"', '$1$1\"' -replace '(\\+)$', '$1$1') + '"'
+}
+
+function Join-NativeArguments {
+    param([string[]]$Arguments = @())
+
+    return (@($Arguments) | ForEach-Object { Quote-NativeArgument -Value $_ }) -join ' '
+}
+
+function Format-NativeCommandOutput {
+    param([object[]]$Output)
+
+    $message = (@($Output) |
+        ForEach-Object { "$_".Trim() } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join ' '
+
+    if ($message.Length -gt 500) {
+        return $message.Substring(0, 500) + '...'
+    }
+
+    return $message
+}
+
 function Get-DockerDesktopPathFromRegistry {
     $registryRoots = @(
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
@@ -187,13 +221,30 @@ function Invoke-NativeCommand {
     param(
         [Parameter(Mandatory = $true)][string]$FilePath,
         [string[]]$Arguments = @(),
-        [switch]$IgnoreExitCode
+        [switch]$IgnoreExitCode,
+        [ref]$Output
     )
 
-    & $FilePath @Arguments
-    $exitCode = $LASTEXITCODE
+    $previousErrorActionPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = @(& $FilePath @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousErrorActionPreference
+    }
+
+    if ($PSBoundParameters.ContainsKey('Output')) {
+        $Output.Value = $output
+    }
+
     if (-not $IgnoreExitCode -and $exitCode -ne 0) {
-        throw "$FilePath $($Arguments -join ' ') failed with exit code $exitCode."
+        $message = Format-NativeCommandOutput -Output $output
+        if ([string]::IsNullOrWhiteSpace($message)) {
+            throw "$FilePath $($Arguments -join ' ') failed with exit code $exitCode."
+        }
+
+        throw "$FilePath $($Arguments -join ' ') failed with exit code $exitCode. $message"
     }
 
     return $exitCode
@@ -206,7 +257,17 @@ function Invoke-NativeCommandWithTimeout {
         [int]$TimeoutSeconds = 15
     )
 
-    $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -NoNewWindow -PassThru
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $FilePath
+    $startInfo.Arguments = Join-NativeArguments -Arguments $Arguments
+    $startInfo.UseShellExecute = $false
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+    $startInfo.CreateNoWindow = $true
+
+    $process = [System.Diagnostics.Process]::Start($startInfo)
+    $standardOutput = $process.StandardOutput.ReadToEndAsync()
+    $standardError = $process.StandardError.ReadToEndAsync()
     if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
         Log "$FilePath $($Arguments -join ' ') did not finish within $TimeoutSeconds seconds."
         try {
@@ -219,6 +280,8 @@ function Invoke-NativeCommandWithTimeout {
         return 124
     }
 
+    $standardOutput.Wait()
+    $standardError.Wait()
     $process.Refresh()
     return $process.ExitCode
 }
@@ -234,8 +297,14 @@ function Stop-ProcessByImageName {
     }
 
     foreach ($process in $processes) {
-        Invoke-NativeCommand -FilePath 'taskkill.exe' -Arguments @('/f', '/pid', $process.Id.ToString()) -IgnoreExitCode | Out-Null
-        Log "Killed process: $($process.ProcessName) (PID $($process.Id))"
+        $commandOutput = $null
+        $exitCode = Invoke-NativeCommand -FilePath 'taskkill.exe' -Arguments @('/f', '/pid', $process.Id.ToString()) -IgnoreExitCode -Output ([ref]$commandOutput)
+        if ($exitCode -eq 0) {
+            Log "Killed process: $($process.ProcessName) (PID $($process.Id))"
+        } else {
+            $message = Format-NativeCommandOutput -Output $commandOutput
+            Log "Unable to kill process: $($process.ProcessName) (PID $($process.Id)); taskkill.exe exited with code $exitCode. $message"
+        }
     }
 }
 
@@ -403,16 +472,28 @@ function Stop-DockerAndWsl {
     if ($wslProcs) {
         Log 'Lingering WSL processes detected. Terminating...'
         foreach ($process in $wslProcs) {
-            Invoke-NativeCommand -FilePath 'taskkill.exe' -Arguments @('/f', '/pid', $process.Id.ToString()) -IgnoreExitCode | Out-Null
-            Log "Killed process: $($process.ProcessName) (PID $($process.Id))"
+            $commandOutput = $null
+            $exitCode = Invoke-NativeCommand -FilePath 'taskkill.exe' -Arguments @('/f', '/pid', $process.Id.ToString()) -IgnoreExitCode -Output ([ref]$commandOutput)
+            if ($exitCode -eq 0) {
+                Log "Killed process: $($process.ProcessName) (PID $($process.Id))"
+            } else {
+                $message = Format-NativeCommandOutput -Output $commandOutput
+                Log "Unable to kill process: $($process.ProcessName) (PID $($process.Id)); taskkill.exe exited with code $exitCode. $message"
+            }
         }
     } else {
         Log 'No lingering WSL processes found.'
     }
 
     Log 'Stopping Windows 11 WSL service...'
-    Invoke-NativeCommand -FilePath 'net.exe' -Arguments @('stop', 'WslService') -IgnoreExitCode | Out-Null
-    Log 'WSL service stop requested.'
+    $commandOutput = $null
+    $exitCode = Invoke-NativeCommand -FilePath 'net.exe' -Arguments @('stop', 'WslService') -IgnoreExitCode -Output ([ref]$commandOutput)
+    if ($exitCode -eq 0) {
+        Log 'WSL service stop requested.'
+    } else {
+        $message = Format-NativeCommandOutput -Output $commandOutput
+        Log "Unable to stop WSL service; net.exe exited with code $exitCode. $message If the VHDX remains locked, run this shortcut as Administrator."
+    }
 }
 
 function Start-DockerDesktop {
@@ -423,6 +504,27 @@ function Start-DockerDesktop {
     Log "Docker Desktop started from '$ResolvedDockerDesktopPath'."
 }
 
+function Start-DetachedGuiProcess {
+    param([string]$FilePath)
+
+    $explorerPath = Join-OptionalPath (Get-EnvironmentPath 'WINDIR') 'explorer.exe'
+    if (-not (Test-ExecutableFile $explorerPath)) {
+        $explorerPath = Join-OptionalPath (Get-EnvironmentPath 'SystemRoot') 'explorer.exe'
+    }
+
+    if (Test-ExecutableFile $explorerPath) {
+        Start-Process -FilePath $explorerPath -ArgumentList (Quote-NativeArgument -Value $FilePath)
+        return
+    }
+
+    $shell = New-Object -ComObject Shell.Application
+    $shell.ShellExecute($FilePath, '', (Split-Path -Parent $FilePath), 'open', 1)
+}
+
+function Test-DockerDesktopEnginePipe {
+    return (Test-Path -LiteralPath '\\.\pipe\dockerDesktopLinuxEngine')
+}
+
 function Wait-ForDockerEngine {
     param(
         [string]$DockerCliPath,
@@ -430,9 +532,31 @@ function Wait-ForDockerEngine {
     )
 
     Log "Waiting up to $Timeout seconds for Docker engine to initialize..."
+    Log 'Docker Desktop can take a minute or two after a WSL shutdown; progress will be logged every 15 seconds.'
+    $startedAt = Get-Date
     $deadline = (Get-Date).AddSeconds($Timeout)
+    $nextProgressLog = $startedAt.AddSeconds(15)
+    $pipeWaitLogged = $false
 
     do {
+        $now = Get-Date
+        if ($now -ge $nextProgressLog) {
+            $elapsedSeconds = [int]($now - $startedAt).TotalSeconds
+            $remainingSeconds = [int][Math]::Max(0, ($deadline - $now).TotalSeconds)
+            Log "Still waiting for Docker engine to initialize ($elapsedSeconds seconds elapsed, about $remainingSeconds seconds remaining). This is expected while Docker Desktop starts."
+            $nextProgressLog = $now.AddSeconds(15)
+        }
+
+        if (-not (Test-DockerDesktopEnginePipe)) {
+            if (-not $pipeWaitLogged) {
+                Log 'Docker Desktop engine pipe is not available yet.'
+                $pipeWaitLogged = $true
+            }
+
+            Start-Sleep -Seconds 3
+            continue
+        }
+
         $remainingSeconds = [int][Math]::Max(1, ($deadline - (Get-Date)).TotalSeconds)
         $probeTimeoutSeconds = [Math]::Min(15, $remainingSeconds)
         $exitCode = Invoke-NativeCommandWithTimeout -FilePath $DockerCliPath -Arguments @('version', '--format', '{{.Server.Version}}') -TimeoutSeconds $probeTimeoutSeconds
@@ -488,8 +612,8 @@ function Restart-Code {
     Log 'Final restart of VS Code...'
     Close-ProcessByImageName -ImageName 'Code.exe'
     Start-Sleep -Seconds 2
-    Start-Process -FilePath $ResolvedCodePath
-    Log "VS Code restarted from '$ResolvedCodePath'."
+    Start-DetachedGuiProcess -FilePath $ResolvedCodePath
+    Log "VS Code restarted from '$ResolvedCodePath' detached from this command window."
 }
 
 try {
@@ -528,7 +652,9 @@ try {
     Stop-ProcessByImageName -ImageName 'Docker Desktop.exe'
     Start-Sleep -Seconds 2
     Start-DockerDesktop -ResolvedDockerDesktopPath $resolvedDockerDesktopPath
-    Wait-ForDockerEngine -DockerCliPath $dockerCliPath -Timeout $TimeoutSeconds | Out-Null
+    if (-not (Wait-ForDockerEngine -DockerCliPath $dockerCliPath -Timeout $TimeoutSeconds)) {
+        throw 'Docker engine failed to start after the final Docker Desktop restart.'
+    }
     Log 'Docker Desktop restarted successfully.'
 
     Restart-Code -ResolvedCodePath $resolvedCodePath

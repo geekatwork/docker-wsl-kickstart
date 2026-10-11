@@ -67,19 +67,28 @@ Open PowerShell in this folder and run:
 Then double-click **Restore Docker Desktop and WSL** on your desktop after a
 reboot.
 
+The generated shortcut is configured to run as administrator, so Windows will
+show a UAC prompt when you launch it. Elevation allows the script to stop the
+WSL service and clear locks that a non-admin process may not be able to release.
+
 The shortcut runs `DockerWslKickstart.ps1` from the folder where you checked out
 or copied this project. Keep the project folder in that location. If you move or
 rename the folder later, run `Install-DesktopShortcut.ps1` again from the new
 location to recreate the shortcut.
 
-Shortcut-created runs stay open if an error occurs so you can read the message.
-They also pause after a successful run and show a clear
+Shortcut-created runs pause after PowerShell exits so you can read the message
+even if the script ends with an error. They also pause after a successful run
+and show a clear
 **Docker WSL Kickstart completed successfully** banner with the log path. The
 same output is also written to:
 
 ```text
 %USERPROFILE%\docker_update_log.txt
 ```
+
+VS Code is restarted by asking Windows Explorer to open it, so it is detached
+from the shortcut's command window. After the success banner appears, closing
+the command window should not close the restarted VS Code instance.
 
 ## Docker Desktop in a custom install location
 
@@ -179,7 +188,7 @@ You can run the kickstart script directly:
 
 - If the shortcut opens, shows an error, and closes immediately, recreate it
   with the latest `Install-DesktopShortcut.ps1`. New shortcuts launch through
-  `cmd.exe /k`, so the console stays open even after PowerShell exits.
+  `cmd.exe` and pause after PowerShell exits, even if the script exits early.
 - If you see `Illegal characters in path`, recreate the shortcut with the latest
   `Install-DesktopShortcut.ps1`. Older shortcuts may have quoted drive roots
   such as `C:\` in a way PowerShell misreads when launched from a `.lnk` file.
@@ -191,14 +200,20 @@ You can run the kickstart script directly:
 - If Docker Desktop is installed normally but the disk image is somewhere custom,
   no extra path is required. Docker Desktop already knows where its disk image
   lives.
+- If Windows does not show a UAC prompt when you launch the shortcut, recreate
+  it with the latest `Install-DesktopShortcut.ps1`.
 - If VS Code is installed somewhere custom and does not restart at the end,
   recreate the shortcut with `-CodePath`.
+- If closing the shortcut command window also closes VS Code, update this
+  project and run `Install-DesktopShortcut.ps1` again so the shortcut uses the
+  latest script.
 - If Docker often fails because VS Code is open, create the shortcut with
   `-RestartWsl` so VS Code is closed before WSL and Docker are stopped.
 - If the output stops after **Starting Docker Desktop**, the script is waiting
-  for the Docker engine to answer. It probes Docker with a timeout and logs
-  **Docker engine is not ready yet** until Docker responds or the overall
-  timeout is reached.
+  for Docker Desktop to create its engine pipe and for the Docker engine to
+  answer. It logs **Docker Desktop engine pipe is not available yet** before
+  the pipe exists, then logs **Docker engine is not ready yet** until Docker
+  responds or the overall timeout is reached.
 - If VS Code does not save before closing, recreate the shortcut with
   `-CodePath` so the script can send VS Code's `workbench.action.files.saveAll`
   command to the right executable.
