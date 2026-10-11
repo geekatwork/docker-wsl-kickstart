@@ -22,10 +22,10 @@ function Quote-Argument {
     param([string]$Value)
 
     if ($null -eq $Value) {
-        return '""'
+        return "''"
     }
 
-    return '"' + ($Value -replace '"', '\"') + '"'
+    return "'" + ($Value -replace "'", "''") + "'"
 }
 
 function Add-NamedArgument {
@@ -75,8 +75,10 @@ foreach ($distro in $WslDistros) {
     Add-NamedArgument -Arguments $arguments -Name '-WslDistros' -Value $distro
 }
 
-foreach ($root in $VhdxSearchRoots) {
-    Add-NamedArgument -Arguments $arguments -Name '-VhdxSearchRoots' -Value $root
+if ($PSBoundParameters.ContainsKey('VhdxSearchRoots')) {
+    foreach ($root in $VhdxSearchRoots) {
+        Add-NamedArgument -Arguments $arguments -Name '-VhdxSearchRoots' -Value $root
+    }
 }
 
 if ($RestartWsl) {

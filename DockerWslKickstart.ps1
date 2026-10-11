@@ -501,6 +501,12 @@ try {
 }
 catch {
     Log "ERROR: $($_.Exception.Message)"
+    if ($_.InvocationInfo -and -not [string]::IsNullOrWhiteSpace($_.InvocationInfo.PositionMessage)) {
+        Log "ERROR LOCATION: $($_.InvocationInfo.PositionMessage)"
+    }
+    if (-not [string]::IsNullOrWhiteSpace($_.ScriptStackTrace)) {
+        Log "ERROR STACK: $($_.ScriptStackTrace)"
+    }
     Write-Error $_
     if ($PauseOnError) {
         Write-Host ""

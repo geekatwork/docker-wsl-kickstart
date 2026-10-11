@@ -156,6 +156,9 @@ You can run the kickstart script directly:
   with the latest `Install-DesktopShortcut.ps1`. New shortcuts launch
   PowerShell with `-NoExit` and pass `-PauseOnError`, so the window stays open
   even if the script fails before its own error handler runs.
+- If you see `Illegal characters in path`, recreate the shortcut with the latest
+  `Install-DesktopShortcut.ps1`. Older shortcuts may have quoted drive roots
+  such as `C:\` in a way PowerShell misreads when launched from a `.lnk` file.
 - If the shortcut cannot find Docker Desktop, recreate it with
   `-DockerDesktopPath`.
 - If Docker Desktop is installed normally but the disk image is somewhere custom,
