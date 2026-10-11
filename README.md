@@ -2,7 +2,8 @@
 
 Creates a Windows desktop shortcut that runs a Docker Desktop safe update and
 restore flow after a reboot. It supports Docker Desktop installed in the default
-location or in a custom location.
+location, including setups where Docker Desktop's disk image is stored in a
+custom location.
 
 ## Background
 
@@ -35,8 +36,9 @@ down WSL, check for locked Docker/WSL disk files, update or restart Docker
 Desktop, wait for the Docker engine, start the chosen WSL distros, and then
 restart VS Code.
 
-The script is intentionally configurable because Docker Desktop and VS Code are
-not always installed in their default locations.
+The script does not need to know Docker Desktop's disk image location. Docker
+Desktop already tracks that setting. The script only starts/stops Docker and WSL
+through their normal commands, with an optional best-effort VHDX lock check.
 
 ## Files
 
@@ -56,7 +58,7 @@ Open PowerShell in this folder and run:
 Then double-click **Restore Docker Desktop and WSL** on your desktop after a
 reboot.
 
-## Docker Desktop in a custom location
+## Docker Desktop in a custom install location
 
 If Docker Desktop is not installed in a standard location, pass the full path to
 `Docker Desktop.exe` when creating the shortcut:
@@ -145,6 +147,9 @@ You can run the kickstart script directly:
 
 - If the shortcut cannot find Docker Desktop, recreate it with
   `-DockerDesktopPath`.
+- If Docker Desktop is installed normally but the disk image is somewhere custom,
+  no extra path is required. Docker Desktop already knows where its disk image
+  lives.
 - If VS Code is installed somewhere custom and does not restart at the end,
   recreate the shortcut with `-CodePath`.
 - If Docker often fails because VS Code is open, create the shortcut with
