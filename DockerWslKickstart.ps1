@@ -28,7 +28,8 @@ function Log {
 function Test-ExecutableFile {
     param([string]$Path)
 
-    return -not [string]::IsNullOrWhiteSpace($Path) -and (Test-Path -LiteralPath $Path -PathType Leaf)
+    $normalizedPath = Normalize-PathText -Path $Path
+    return -not [string]::IsNullOrWhiteSpace($normalizedPath) -and (Test-Path -LiteralPath $normalizedPath -PathType Leaf)
 }
 
 function Get-EnvironmentPath {
@@ -43,11 +44,22 @@ function Join-OptionalPath {
         [string]$ChildPath
     )
 
-    if ([string]::IsNullOrWhiteSpace($BasePath)) {
+    $normalizedBasePath = Normalize-PathText -Path $BasePath
+    if ([string]::IsNullOrWhiteSpace($normalizedBasePath)) {
         return $null
     }
 
-    return Join-Path $BasePath $ChildPath
+    return Join-Path $normalizedBasePath $ChildPath
+}
+
+function Normalize-PathText {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    return $Path.Trim().Trim('"')
 }
 
 function Get-ObjectPropertyValue {
@@ -80,7 +92,7 @@ function Get-DockerDesktopPathFromRegistry {
             Where-Object { (Get-ObjectPropertyValue -InputObject $_ -PropertyName 'DisplayName') -eq 'Docker Desktop' } |
             Select-Object -First 1
 
-        $installLocation = Get-ObjectPropertyValue -InputObject $dockerEntry -PropertyName 'InstallLocation'
+        $installLocation = Normalize-PathText -Path (Get-ObjectPropertyValue -InputObject $dockerEntry -PropertyName 'InstallLocation')
         if ([string]::IsNullOrWhiteSpace($installLocation)) {
             continue
         }
@@ -97,12 +109,13 @@ function Get-DockerDesktopPathFromRegistry {
 function Resolve-DockerDesktopPath {
     param([string]$RequestedPath)
 
-    if (Test-ExecutableFile $RequestedPath) {
-        return (Resolve-Path -LiteralPath $RequestedPath).Path
+    $normalizedRequestedPath = Normalize-PathText -Path $RequestedPath
+    if (Test-ExecutableFile $normalizedRequestedPath) {
+        return (Resolve-Path -LiteralPath $normalizedRequestedPath).Path
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($RequestedPath)) {
-        throw "Docker Desktop was not found at '$RequestedPath'. Recreate the shortcut with the correct -DockerDesktopPath value."
+    if (-not [string]::IsNullOrWhiteSpace($normalizedRequestedPath)) {
+        throw "Docker Desktop was not found at '$normalizedRequestedPath'. Recreate the shortcut with the correct -DockerDesktopPath value."
     }
 
     $programFiles = Get-EnvironmentPath 'ProgramFiles'
@@ -128,12 +141,13 @@ function Resolve-DockerDesktopPath {
 function Resolve-CodePath {
     param([string]$RequestedPath)
 
-    if (Test-ExecutableFile $RequestedPath) {
-        return (Resolve-Path -LiteralPath $RequestedPath).Path
+    $normalizedRequestedPath = Normalize-PathText -Path $RequestedPath
+    if (Test-ExecutableFile $normalizedRequestedPath) {
+        return (Resolve-Path -LiteralPath $normalizedRequestedPath).Path
     }
 
-    if (-not [string]::IsNullOrWhiteSpace($RequestedPath)) {
-        throw "VS Code was not found at '$RequestedPath'. Recreate the shortcut with the correct -CodePath value."
+    if (-not [string]::IsNullOrWhiteSpace($normalizedRequestedPath)) {
+        throw "VS Code was not found at '$normalizedRequestedPath'. Recreate the shortcut with the correct -CodePath value."
     }
 
     $candidates = @(
