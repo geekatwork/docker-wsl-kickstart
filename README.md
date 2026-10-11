@@ -165,9 +165,8 @@ You can run the kickstart script directly:
 ## Troubleshooting
 
 - If the shortcut opens, shows an error, and closes immediately, recreate it
-  with the latest `Install-DesktopShortcut.ps1`. New shortcuts launch
-  PowerShell with `-NoExit` and pass `-PauseOnError`, so the window stays open
-  even if the script fails before its own error handler runs.
+  with the latest `Install-DesktopShortcut.ps1`. New shortcuts launch through
+  `cmd.exe /k`, so the console stays open even after PowerShell exits.
 - If you see `Illegal characters in path`, recreate the shortcut with the latest
   `Install-DesktopShortcut.ps1`. Older shortcuts may have quoted drive roots
   such as `C:\` in a way PowerShell misreads when launched from a `.lnk` file.

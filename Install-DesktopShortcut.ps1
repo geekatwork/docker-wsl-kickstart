@@ -13,7 +13,8 @@ param(
     [switch]$RecoverDockerDesktopDistro,
     [switch]$NoPauseOnSuccess,
     [switch]$NoPauseOnError,
-    [string]$PowerShellExe = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+    [string]$PowerShellExe = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe",
+    [string]$CommandShellExe = "$env:SystemRoot\System32\cmd.exe"
 )
 
 Set-StrictMode -Version Latest
@@ -23,10 +24,10 @@ function Quote-Argument {
     param([string]$Value)
 
     if ($null -eq $Value) {
-        return "''"
+        return '""'
     }
 
-    return "'" + ($Value -replace "'", "''") + "'"
+    return '"' + ($Value -replace '"', '\"') + '"'
 }
 
 function Add-NamedArgument {
@@ -55,13 +56,16 @@ if (-not (Test-Path -LiteralPath $PowerShellExe -PathType Leaf)) {
     throw "PowerShell executable was not found at '$PowerShellExe'."
 }
 
+if (-not (Test-Path -LiteralPath $CommandShellExe -PathType Leaf)) {
+    throw "Command shell executable was not found at '$CommandShellExe'."
+}
+
 if (-not $ShortcutName.EndsWith('.lnk', [StringComparison]::OrdinalIgnoreCase)) {
     $ShortcutName = "$ShortcutName.lnk"
 }
 
 $arguments = [System.Collections.Generic.List[string]]::new()
 $arguments.Add('-NoProfile')
-$arguments.Add('-NoExit')
 $arguments.Add('-ExecutionPolicy')
 $arguments.Add('Bypass')
 $arguments.Add('-File')
@@ -114,8 +118,8 @@ if ([string]::IsNullOrWhiteSpace($desktop)) {
 $shortcutPath = Join-Path $desktop $ShortcutName
 $shell = New-Object -ComObject WScript.Shell
 $shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = $PowerShellExe
-$shortcut.Arguments = ($arguments -join ' ')
+$shortcut.TargetPath = $CommandShellExe
+$shortcut.Arguments = '/k "' + (Quote-Argument $PowerShellExe) + ' ' + ($arguments -join ' ') + '"'
 $shortcut.WorkingDirectory = $InstallDirectory
 $shortcut.Description = 'Restore Docker Desktop and WSL after reboot.'
 
