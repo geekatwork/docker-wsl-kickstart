@@ -49,6 +49,24 @@ function Join-OptionalPath {
     return Join-Path $BasePath $ChildPath
 }
 
+function Get-ObjectPropertyValue {
+    param(
+        [object]$InputObject,
+        [string]$PropertyName
+    )
+
+    if ($null -eq $InputObject) {
+        return $null
+    }
+
+    $property = $InputObject.PSObject.Properties[$PropertyName]
+    if ($null -eq $property) {
+        return $null
+    }
+
+    return $property.Value
+}
+
 function Get-DockerDesktopPathFromRegistry {
     $registryRoots = @(
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
@@ -58,14 +76,15 @@ function Get-DockerDesktopPathFromRegistry {
 
     foreach ($root in $registryRoots) {
         $dockerEntry = Get-ItemProperty -Path $root -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -eq 'Docker Desktop' } |
+            Where-Object { (Get-ObjectPropertyValue -InputObject $_ -PropertyName 'DisplayName') -eq 'Docker Desktop' } |
             Select-Object -First 1
 
-        if ($null -eq $dockerEntry -or [string]::IsNullOrWhiteSpace($dockerEntry.InstallLocation)) {
+        $installLocation = Get-ObjectPropertyValue -InputObject $dockerEntry -PropertyName 'InstallLocation'
+        if ([string]::IsNullOrWhiteSpace($installLocation)) {
             continue
         }
 
-        $candidate = Join-Path $dockerEntry.InstallLocation 'Docker Desktop.exe'
+        $candidate = Join-Path $installLocation 'Docker Desktop.exe'
         if (Test-ExecutableFile $candidate) {
             return $candidate
         }
