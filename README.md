@@ -58,6 +58,11 @@ Open PowerShell in this folder and run:
 Then double-click **Restore Docker Desktop and WSL** on your desktop after a
 reboot.
 
+The shortcut runs `DockerWslKickstart.ps1` from the folder where you checked out
+or copied this project. Keep the project folder in that location. If you move or
+rename the folder later, run `Install-DesktopShortcut.ps1` again from the new
+location to recreate the shortcut.
+
 Shortcut-created runs stay open if an error occurs so you can read the message.
 The same error is also written to:
 
