@@ -199,6 +199,30 @@ function Invoke-NativeCommand {
     return $exitCode
 }
 
+function Invoke-NativeCommandWithTimeout {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$Arguments = @(),
+        [int]$TimeoutSeconds = 15
+    )
+
+    $process = Start-Process -FilePath $FilePath -ArgumentList $Arguments -NoNewWindow -PassThru
+    if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+        Log "$FilePath $($Arguments -join ' ') did not finish within $TimeoutSeconds seconds."
+        try {
+            $process.Kill()
+            $process.WaitForExit()
+        } catch {
+            Log "Unable to terminate timed-out process $($process.Id): $($_.Exception.Message)"
+        }
+
+        return 124
+    }
+
+    $process.Refresh()
+    return $process.ExitCode
+}
+
 function Stop-ProcessByImageName {
     param([string]$ImageName)
 
@@ -409,12 +433,15 @@ function Wait-ForDockerEngine {
     $deadline = (Get-Date).AddSeconds($Timeout)
 
     do {
-        $exitCode = Invoke-NativeCommand -FilePath $DockerCliPath -Arguments @('info') -IgnoreExitCode
+        $remainingSeconds = [int][Math]::Max(1, ($deadline - (Get-Date)).TotalSeconds)
+        $probeTimeoutSeconds = [Math]::Min(15, $remainingSeconds)
+        $exitCode = Invoke-NativeCommandWithTimeout -FilePath $DockerCliPath -Arguments @('version', '--format', '{{.Server.Version}}') -TimeoutSeconds $probeTimeoutSeconds
         if ($exitCode -eq 0) {
             Log 'Docker engine is running normally.'
             return $true
         }
 
+        Log 'Docker engine is not ready yet.'
         Start-Sleep -Seconds 3
     } while ((Get-Date) -lt $deadline)
 

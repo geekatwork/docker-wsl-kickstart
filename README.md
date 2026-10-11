@@ -195,6 +195,10 @@ You can run the kickstart script directly:
   recreate the shortcut with `-CodePath`.
 - If Docker often fails because VS Code is open, create the shortcut with
   `-RestartWsl` so VS Code is closed before WSL and Docker are stopped.
+- If the output stops after **Starting Docker Desktop**, the script is waiting
+  for the Docker engine to answer. It probes Docker with a timeout and logs
+  **Docker engine is not ready yet** until Docker responds or the overall
+  timeout is reached.
 - If VS Code does not save before closing, recreate the shortcut with
   `-CodePath` so the script can send VS Code's `workbench.action.files.saveAll`
   command to the right executable.
