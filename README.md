@@ -153,8 +153,9 @@ You can run the kickstart script directly:
 ## Troubleshooting
 
 - If the shortcut opens, shows an error, and closes immediately, recreate it
-  with the latest `Install-DesktopShortcut.ps1`. New shortcuts pass
-  `-PauseOnError` to keep the PowerShell window open when the script fails.
+  with the latest `Install-DesktopShortcut.ps1`. New shortcuts launch
+  PowerShell with `-NoExit` and pass `-PauseOnError`, so the window stays open
+  even if the script fails before its own error handler runs.
 - If the shortcut cannot find Docker Desktop, recreate it with
   `-DockerDesktopPath`.
 - If Docker Desktop is installed normally but the disk image is somewhere custom,

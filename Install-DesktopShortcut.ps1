@@ -60,6 +60,7 @@ if (-not $ShortcutName.EndsWith('.lnk', [StringComparison]::OrdinalIgnoreCase)) 
 
 $arguments = [System.Collections.Generic.List[string]]::new()
 $arguments.Add('-NoProfile')
+$arguments.Add('-NoExit')
 $arguments.Add('-ExecutionPolicy')
 $arguments.Add('Bypass')
 $arguments.Add('-File')
