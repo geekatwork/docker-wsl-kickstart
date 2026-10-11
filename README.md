@@ -5,6 +5,10 @@ restore flow after a reboot. It supports Docker Desktop installed in the default
 location, including setups where Docker Desktop's disk image is stored in a
 custom location.
 
+This is mainly intended to fix Docker Desktop restart failures after updates or
+reboots, especially on systems where Docker Desktop's volume/disk image location
+is non-standard.
+
 ## Background
 
 Docker Desktop on Windows relies on WSL 2, Docker's own internal WSL distros,
@@ -12,6 +16,11 @@ the Docker backend process, and one or more WSL `ext4.vhdx` disk files. After a
 Windows reboot, sleep/hibernate cycle, failed update, or forced shutdown, those
 pieces can sometimes come back in the wrong order or stay locked by another
 process.
+
+The problem is more noticeable when Docker Desktop stores its WSL data or volume
+disk image outside the default location. Docker Desktop still knows where that
+disk image lives, but updates and restarts can be more sensitive to lingering
+locks from WSL, Docker backend processes, terminals, or VS Code.
 
 The common result is that Docker Desktop opens but the engine never becomes
 usable. Typical symptoms include:
