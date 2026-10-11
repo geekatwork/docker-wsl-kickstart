@@ -304,9 +304,14 @@ function Test-VhdxLock {
 function Get-LatestDockerDesktopVersion {
     Log 'Fetching latest Docker Desktop version info...'
     $latestInfo = Invoke-WebRequest -Uri 'https://desktop.docker.com/win/main/amd64/appcast.xml' -UseBasicParsing
-    $latestVersion = ([regex]::Match($latestInfo.Content, '<sparkle:shortVersionString>(.*?)</sparkle:shortVersionString>').Groups[1].Value)
+    $latestVersion = ([regex]::Match($latestInfo.Content, 'sparkle:shortVersionString="([^"]+)"').Groups[1].Value)
     if ([string]::IsNullOrWhiteSpace($latestVersion)) {
-        throw 'Unable to parse the latest Docker Desktop version from appcast.xml.'
+        $latestVersion = ([regex]::Match($latestInfo.Content, '<sparkle:shortVersionString>(.*?)</sparkle:shortVersionString>').Groups[1].Value)
+    }
+
+    if ([string]::IsNullOrWhiteSpace($latestVersion)) {
+        Log 'Unable to parse the latest Docker Desktop version from appcast.xml. Skipping update check.'
+        return $null
     }
 
     Log "Latest available version: $latestVersion"
@@ -326,6 +331,10 @@ function Update-DockerDesktopIfNeeded {
     Log "Installed version: $installedVersion"
 
     $latestVersion = Get-LatestDockerDesktopVersion
+    if ([string]::IsNullOrWhiteSpace($latestVersion)) {
+        return
+    }
+
     if ($installedVersion -eq $latestVersion) {
         Log 'Docker Desktop is already up to date. No update required.'
         return

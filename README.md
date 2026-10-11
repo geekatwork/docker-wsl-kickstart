@@ -138,6 +138,9 @@ To skip the Docker Desktop version check and installer download:
 .\Install-DesktopShortcut.ps1 -SkipUpdate
 ```
 
+This is the recommended mode when you only want to recover Docker Desktop and
+WSL after a reboot.
+
 ## Recover Docker Desktop internal WSL state
 
 If the Docker engine does not start, you can allow the script to unregister and
@@ -170,6 +173,9 @@ You can run the kickstart script directly:
 - If you see `Illegal characters in path`, recreate the shortcut with the latest
   `Install-DesktopShortcut.ps1`. Older shortcuts may have quoted drive roots
   such as `C:\` in a way PowerShell misreads when launched from a `.lnk` file.
+- If the Docker Desktop update feed cannot be parsed, the script logs that and
+  skips the update check so the restart/recovery flow can continue. Use
+  `-SkipUpdate` if you do not want update checks at all.
 - If the shortcut cannot find Docker Desktop, recreate it with
   `-DockerDesktopPath`.
 - If Docker Desktop is installed normally but the disk image is somewhere custom,
