@@ -73,8 +73,9 @@ rename the folder later, run `Install-DesktopShortcut.ps1` again from the new
 location to recreate the shortcut.
 
 Shortcut-created runs stay open if an error occurs so you can read the message.
-They also pause after a successful run so you can see the final status and log
-path. The same output is also written to:
+They also pause after a successful run and show a clear
+**Docker WSL Kickstart completed successfully** banner with the log path. The
+same output is also written to:
 
 ```text
 %USERPROFILE%\docker_update_log.txt

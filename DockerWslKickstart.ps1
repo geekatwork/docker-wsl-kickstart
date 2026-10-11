@@ -506,8 +506,13 @@ try {
 
     Restart-Code -ResolvedCodePath $resolvedCodePath
 
-    Log '=== Safe Update Script Completed (Final Restart Done) ==='
-    Write-Host "`nDocker Desktop and VS Code restarted. Log saved to $LogFile"
+    Log '=== Docker WSL Kickstart completed successfully ==='
+    Write-Host ''
+    Write-Host '============================================================'
+    Write-Host ' Docker WSL Kickstart completed successfully'
+    Write-Host ' Docker Desktop and VS Code restart steps are done.'
+    Write-Host " Log saved to: $LogFile"
+    Write-Host '============================================================'
     if ($PauseOnSuccess) {
         Write-Host ""
         Read-Host 'Press Enter to close this window'
