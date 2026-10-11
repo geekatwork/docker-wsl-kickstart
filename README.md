@@ -58,6 +58,13 @@ Open PowerShell in this folder and run:
 Then double-click **Restore Docker Desktop and WSL** on your desktop after a
 reboot.
 
+Shortcut-created runs stay open if an error occurs so you can read the message.
+The same error is also written to:
+
+```text
+%USERPROFILE%\docker_update_log.txt
+```
+
 ## Docker Desktop in a custom install location
 
 If Docker Desktop is not installed in a standard location, pass the full path to
@@ -145,6 +152,9 @@ You can run the kickstart script directly:
 
 ## Troubleshooting
 
+- If the shortcut opens, shows an error, and closes immediately, recreate it
+  with the latest `Install-DesktopShortcut.ps1`. New shortcuts pass
+  `-PauseOnError` to keep the PowerShell window open when the script fails.
 - If the shortcut cannot find Docker Desktop, recreate it with
   `-DockerDesktopPath`.
 - If Docker Desktop is installed normally but the disk image is somewhere custom,

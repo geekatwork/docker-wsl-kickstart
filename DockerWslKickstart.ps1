@@ -9,7 +9,8 @@ param(
     [switch]$RestartWsl,
     [switch]$SkipVsCodeSave,
     [switch]$SkipUpdate,
-    [switch]$RecoverDockerDesktopDistro
+    [switch]$RecoverDockerDesktopDistro,
+    [switch]$PauseOnError
 )
 
 Set-StrictMode -Version Latest
@@ -487,5 +488,11 @@ try {
 catch {
     Log "ERROR: $($_.Exception.Message)"
     Write-Error $_
+    if ($PauseOnError) {
+        Write-Host ""
+        Write-Host "An error occurred. Review the message above or the log file:"
+        Write-Host $LogFile
+        Read-Host 'Press Enter to close this window'
+    }
     exit 1
 }
