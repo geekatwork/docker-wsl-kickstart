@@ -160,6 +160,40 @@ To skip the Docker Desktop version check and installer download:
 This is the recommended mode when you only want to recover Docker Desktop and
 WSL after a reboot.
 
+## Repair Docker VHDX access denied errors
+
+If Docker Desktop reports a WSL error like:
+
+```text
+Wsl/Service/RegisterDistro/MountDisk/HCS/E_ACCESSDENIED
+Failed to attach disk '\\?\D:\Docker\wsl\main\ext4.vhdx' to WSL2: Access is denied.
+```
+
+then Windows/WSL cannot attach Docker Desktop's custom data disk. This usually
+means the disk image or its parent folder has permissions that block your user,
+`SYSTEM`, or local Administrators, or another security tool is blocking access.
+
+Run PowerShell as Administrator and run:
+
+```powershell
+.\DockerWslKickstart.ps1 `
+  -RestartWsl `
+  -SkipUpdate `
+  -RepairDockerVhdxAccess `
+  -DockerVhdxPath "D:\Docker\wsl\main\ext4.vhdx"
+```
+
+The repair mode shuts down Docker/WSL, removes the read-only attribute from the
+VHDX if present, and grants full access on the VHDX folder and file to:
+
+- the current Windows user
+- `SYSTEM`
+- local Administrators
+
+If the error still appears after that, check Windows Security Controlled Folder
+Access, antivirus, endpoint-protection, backup, sync, or anti-cheat software
+that may be blocking `wsl.exe` from opening the VHDX.
+
 ## Recover Docker Desktop internal WSL state
 
 If the Docker engine does not start, you can allow the script to unregister and
@@ -198,6 +232,8 @@ building this shortcut by hand:
   shortcut's command window.
 - Docker Desktop can use a custom disk image location without any extra
   shortcut argument. Docker Desktop already tracks that setting.
+- `-RepairDockerVhdxAccess` can be used explicitly for WSL
+  `MountDisk/HCS/E_ACCESSDENIED` errors on custom Docker Desktop VHDX paths.
 - If the Docker Desktop update feed cannot be parsed, the script logs that and
   skips the update check so the restart/recovery flow can continue.
 - While waiting after **Starting Docker Desktop**, the script logs whether it is

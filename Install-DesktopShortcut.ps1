@@ -3,6 +3,7 @@ param(
     [string]$InstallDirectory = $PSScriptRoot,
     [string]$ShortcutName = 'Restore Docker Desktop and WSL.lnk',
     [string]$DockerDesktopPath,
+    [string]$DockerVhdxPath,
     [string]$CodePath,
     [string[]]$WslDistros = @(),
     [string[]]$VhdxSearchRoots = @('C:\', 'D:\'),
@@ -10,6 +11,7 @@ param(
     [switch]$RestartWsl,
     [switch]$SkipVsCodeSave,
     [switch]$SkipUpdate,
+    [switch]$RepairDockerVhdxAccess,
     [switch]$RecoverDockerDesktopDistro,
     [switch]$NoPauseOnSuccess,
     [switch]$NoPauseOnError,
@@ -104,6 +106,7 @@ $arguments.Add('-TimeoutSeconds')
 $arguments.Add($TimeoutSeconds.ToString())
 
 Add-NamedArgument -Arguments $arguments -Name '-DockerDesktopPath' -Value $DockerDesktopPath
+Add-NamedArgument -Arguments $arguments -Name '-DockerVhdxPath' -Value $DockerVhdxPath
 Add-NamedArgument -Arguments $arguments -Name '-CodePath' -Value $CodePath
 
 foreach ($distro in $WslDistros) {
@@ -126,6 +129,10 @@ if ($SkipVsCodeSave) {
 
 if ($SkipUpdate) {
     $arguments.Add('-SkipUpdate')
+}
+
+if ($RepairDockerVhdxAccess) {
+    $arguments.Add('-RepairDockerVhdxAccess')
 }
 
 if ($RecoverDockerDesktopDistro) {

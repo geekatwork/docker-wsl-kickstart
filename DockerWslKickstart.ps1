@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$DockerDesktopPath,
+    [string]$DockerVhdxPath,
     [string]$CodePath,
     [string[]]$WslDistros = @(),
     [string[]]$VhdxSearchRoots = @('C:\', 'D:\'),
@@ -9,6 +10,7 @@ param(
     [switch]$RestartWsl,
     [switch]$SkipVsCodeSave,
     [switch]$SkipUpdate,
+    [switch]$RepairDockerVhdxAccess,
     [switch]$RecoverDockerDesktopDistro,
     [switch]$PauseOnSuccess,
     [switch]$PauseOnError
@@ -377,6 +379,24 @@ function Find-DockerVhdx {
     return $dockerVhdx
 }
 
+function Resolve-DockerVhdx {
+    param(
+        [string]$RequestedPath,
+        $DiscoveredVhdx
+    )
+
+    $normalizedPath = Normalize-PathText -Path $RequestedPath
+    if (-not [string]::IsNullOrWhiteSpace($normalizedPath)) {
+        if (-not (Test-Path -LiteralPath $normalizedPath -PathType Leaf)) {
+            throw "Docker VHDX was not found at '$normalizedPath'."
+        }
+
+        return Get-Item -LiteralPath $normalizedPath
+    }
+
+    return $DiscoveredVhdx
+}
+
 function Test-VhdxLock {
     param($DockerVhdx)
 
@@ -392,6 +412,40 @@ function Test-VhdxLock {
     } catch {
         Log 'VHDX appears locked. This may cause update issues.'
     }
+}
+
+function Repair-DockerVhdxAccess {
+    param($DockerVhdx)
+
+    if ($null -eq $DockerVhdx) {
+        throw 'Docker VHDX was not found. Re-run with -DockerVhdxPath pointing to Docker Desktop''s ext4.vhdx file.'
+    }
+
+    $vhdxPath = $DockerVhdx.FullName
+    $vhdxFolder = Split-Path -Parent $vhdxPath
+    $currentUserSid = [System.Security.Principal.WindowsIdentity]::GetCurrent().User.Value
+
+    Log "Repairing Docker VHDX access for '$vhdxPath'."
+    Log "Granting access to current user SID $currentUserSid, SYSTEM, and Administrators."
+
+    Invoke-NativeCommand -FilePath 'attrib.exe' -Arguments @('-R', $vhdxPath) -IgnoreExitCode | Out-Null
+    Invoke-NativeCommand -FilePath 'icacls.exe' -Arguments @(
+        $vhdxFolder,
+        '/grant',
+        "$($currentUserSid):(OI)(CI)F",
+        '*S-1-5-18:(OI)(CI)F',
+        '*S-1-5-32-544:(OI)(CI)F',
+        '/T'
+    ) | Out-Null
+    Invoke-NativeCommand -FilePath 'icacls.exe' -Arguments @(
+        $vhdxPath,
+        '/grant',
+        "$($currentUserSid):F",
+        '*S-1-5-18:F',
+        '*S-1-5-32-544:F'
+    ) | Out-Null
+
+    Log 'Docker VHDX access repair completed.'
 }
 
 function Get-LatestDockerDesktopVersion {
@@ -618,12 +672,17 @@ function Restart-Code {
 
 try {
     $dockerVhdx = Find-DockerVhdx -SearchRoots $VhdxSearchRoots
+    $dockerVhdxForRepair = Resolve-DockerVhdx -RequestedPath $DockerVhdxPath -DiscoveredVhdx $dockerVhdx
     $resolvedDockerDesktopPath = Resolve-DockerDesktopPath -RequestedPath $DockerDesktopPath
     $resolvedCodePath = Resolve-CodePath -RequestedPath $CodePath
 
-    if ($RestartWsl) {
+    if ($RestartWsl -or $RepairDockerVhdxAccess) {
         Stop-DockerAndWsl -ResolvedCodePath $resolvedCodePath
-        Test-VhdxLock -DockerVhdx $dockerVhdx
+        Test-VhdxLock -DockerVhdx $dockerVhdxForRepair
+    }
+
+    if ($RepairDockerVhdxAccess) {
+        Repair-DockerVhdxAccess -DockerVhdx $dockerVhdxForRepair
     }
 
     Update-DockerDesktopIfNeeded -ResolvedDockerDesktopPath $resolvedDockerDesktopPath
