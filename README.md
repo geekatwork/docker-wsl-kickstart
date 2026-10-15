@@ -160,6 +160,10 @@ To skip the Docker Desktop version check and installer download:
 This is the recommended mode when you only want to recover Docker Desktop and
 WSL after a reboot.
 
+If you see PowerShell showing **Writing Web Request**, the script is checking or
+downloading a Docker Desktop update. Use `-SkipUpdate` to avoid that step during
+normal restart recovery.
+
 ## Repair Docker VHDX access denied errors
 
 If Docker Desktop reports a WSL error like:

@@ -117,6 +117,25 @@ function Format-NativeCommandOutput {
     return $message
 }
 
+function Invoke-WebRequestQuietly {
+    param(
+        [Parameter(Mandatory = $true)][string]$Uri,
+        [string]$OutFile
+    )
+
+    $previousProgressPreference = $ProgressPreference
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        if ([string]::IsNullOrWhiteSpace($OutFile)) {
+            return Invoke-WebRequest -Uri $Uri -UseBasicParsing
+        }
+
+        Invoke-WebRequest -Uri $Uri -OutFile $OutFile -UseBasicParsing
+    } finally {
+        $ProgressPreference = $previousProgressPreference
+    }
+}
+
 function Get-DockerDesktopPathFromRegistry {
     $registryRoots = @(
         'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
@@ -450,7 +469,7 @@ function Repair-DockerVhdxAccess {
 
 function Get-LatestDockerDesktopVersion {
     Log 'Fetching latest Docker Desktop version info...'
-    $latestInfo = Invoke-WebRequest -Uri 'https://desktop.docker.com/win/main/amd64/appcast.xml' -UseBasicParsing
+    $latestInfo = Invoke-WebRequestQuietly -Uri 'https://desktop.docker.com/win/main/amd64/appcast.xml'
     $latestVersion = ([regex]::Match($latestInfo.Content, 'sparkle:shortVersionString="([^"]+)"').Groups[1].Value)
     if ([string]::IsNullOrWhiteSpace($latestVersion)) {
         $latestVersion = ([regex]::Match($latestInfo.Content, '<sparkle:shortVersionString>(.*?)</sparkle:shortVersionString>').Groups[1].Value)
@@ -489,7 +508,7 @@ function Update-DockerDesktopIfNeeded {
 
     Log 'Downloading latest Docker Desktop installer...'
     $installer = Join-Path $env:TEMP 'DockerDesktopInstaller.exe'
-    Invoke-WebRequest -Uri 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe' -OutFile $installer -UseBasicParsing
+    Invoke-WebRequestQuietly -Uri 'https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe' -OutFile $installer
     Log "Docker Desktop installer downloaded to $installer."
 
     Log 'Running Docker Desktop installer...'
